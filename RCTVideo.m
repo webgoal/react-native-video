@@ -6,14 +6,12 @@
 
 static NSString *const statusKeyPath = @"status";
 static NSString *const playbackLikelyToKeepUpKeyPath = @"playbackLikelyToKeepUp";
-static NSString *const playbackBufferEmptyKeyPath = @"playbackBufferEmpty";
 
 @implementation RCTVideo
 {
   AVPlayer *_player;
   AVPlayerItem *_playerItem;
   BOOL _playerItemObserversSet;
-  BOOL _playerBufferEmpty;
   AVPlayerLayer *_playerLayer;
   AVPlayerViewController *_playerViewController;
   NSURL *_videoURL;
@@ -52,20 +50,88 @@ static NSString *const playbackBufferEmptyKeyPath = @"playbackBufferEmpty";
     _lastSeekTime = 0.0f;
     _progressUpdateInterval = 250;
     _controls = NO;
-    _playerBufferEmpty = YES;
 
-    [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(applicationWillResignActive:)
-                                                 name:UIApplicationWillResignActiveNotification
-                                               object:nil];
-
-    [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(applicationWillEnterForeground:)
-                                                 name:UIApplicationWillEnterForegroundNotification
-                                               object:nil];
+      [[NSNotificationCenter defaultCenter] addObserver:self
+                                               selector:@selector(onAudioInterruption:)
+                                                   name:AVAudioSessionInterruptionNotification
+                                                 object:nil];
+      // Register for route change notifications
+      [[NSNotificationCenter defaultCenter] addObserver:self
+                                               selector:@selector(onRouteChangeInterruption:)
+                                                   name:AVAudioSessionRouteChangeNotification
+                                                 object:nil];
   }
 
   return self;
+}
+
+- (void)onAudioInterruption:(NSNotification *)notification
+{
+    // Get the user info dictionary
+    NSDictionary *interruptionDict = notification.userInfo;
+    
+    // Get the AVAudioSessionInterruptionTypeKey enum from the dictionary
+    NSInteger interuptionType = [[interruptionDict valueForKey:AVAudioSessionInterruptionTypeKey] integerValue];
+    
+    // Decide what to do based on interruption type
+    switch (interuptionType)
+    {
+        case AVAudioSessionInterruptionTypeBegan:
+            NSLog(@"Audio Session Interruption case started.");
+            // fork to handling method here...
+            // EG:[self handleInterruptionStarted];
+            break;
+            
+        case AVAudioSessionInterruptionTypeEnded:
+            NSLog(@"Audio Session Interruption case ended.");
+            // fork to handling method here...
+            // EG:[self handleInterruptionEnded];
+            break;
+            
+        default:
+            NSLog(@"Audio Session Interruption Notification case default.");
+            break;
+    }
+}
+
+- (void)onRouteChangeInterruption:(NSNotification*)notification {
+    
+    NSDictionary *interruptionDict = notification.userInfo;
+    
+    NSInteger routeChangeReason = [[interruptionDict valueForKey:AVAudioSessionRouteChangeReasonKey] integerValue];
+    
+    switch (routeChangeReason) {
+        case AVAudioSessionRouteChangeReasonUnknown:
+            NSLog(@"routeChangeReason : AVAudioSessionRouteChangeReasonUnknown");
+            break;
+            
+        case AVAudioSessionRouteChangeReasonNewDeviceAvailable:
+            // a headset was added or removed
+            NSLog(@"routeChangeReason : AVAudioSessionRouteChangeReasonNewDeviceAvailable");
+            break;
+            
+        case AVAudioSessionRouteChangeReasonOldDeviceUnavailable:
+            // a headset was added or removed
+            NSLog(@"routeChangeReason : AVAudioSessionRouteChangeReasonOldDeviceUnavailable");
+            break;
+            
+        case AVAudioSessionRouteChangeReasonCategoryChange:
+            // called at start - also when other audio wants to play
+            NSLog(@"routeChangeReason : AVAudioSessionRouteChangeReasonCategoryChange"); //AVAudioSessionRouteChangeReasonCategoryChange
+            break;
+            
+        case AVAudioSessionRouteChangeReasonOverride:
+            NSLog(@"routeChangeReason : AVAudioSessionRouteChangeReasonOverride");
+            break;
+            
+        case AVAudioSessionRouteChangeReasonWakeFromSleep:
+            NSLog(@"routeChangeReason : AVAudioSessionRouteChangeReasonWakeFromSleep");
+            break;
+            
+        case AVAudioSessionRouteChangeReasonNoSuitableRouteForCategory:
+            NSLog(@"routeChangeReason : AVAudioSessionRouteChangeReasonNoSuitableRouteForCategory");
+            break;
+    }
 }
 
 - (AVPlayerViewController*)createPlayerViewController:(AVPlayer*)player withPlayerItem:(AVPlayerItem*)playerItem {
@@ -113,6 +179,7 @@ static NSString *const playbackBufferEmptyKeyPath = @"playbackBufferEmpty";
 
 - (void)applicationWillResignActive:(NSNotification *)notification
 {
+  NSLog(@"RESIGN VALUE IS : %@", (_paused) ? @"YES" : @"NO");
   if (!_paused) {
     [_player pause];
     [_player setRate:0.0];
@@ -121,6 +188,7 @@ static NSString *const playbackBufferEmptyKeyPath = @"playbackBufferEmpty";
 
 - (void)applicationWillEnterForeground:(NSNotification *)notification
 {
+  NSLog(@"FORE VALUE IS : %@", (_paused) ? @"YES" : @"NO");
   [self applyModifiers];
 }
 
@@ -181,7 +249,6 @@ static NSString *const playbackBufferEmptyKeyPath = @"playbackBufferEmpty";
 - (void)addPlayerItemObservers
 {
   [_playerItem addObserver:self forKeyPath:statusKeyPath options:0 context:nil];
-  [_playerItem addObserver:self forKeyPath:playbackBufferEmptyKeyPath options:0 context:nil];
   [_playerItem addObserver:self forKeyPath:playbackLikelyToKeepUpKeyPath options:0 context:nil];
   _playerItemObserversSet = YES;
 }
@@ -193,7 +260,6 @@ static NSString *const playbackBufferEmptyKeyPath = @"playbackBufferEmpty";
 {
   if (_playerItemObserversSet) {
     [_playerItem removeObserver:self forKeyPath:statusKeyPath];
-    [_playerItem removeObserver:self forKeyPath:playbackBufferEmptyKeyPath];
     [_playerItem removeObserver:self forKeyPath:playbackLikelyToKeepUpKeyPath];
     _playerItemObserversSet = NO;
   }
@@ -284,14 +350,11 @@ static NSString *const playbackBufferEmptyKeyPath = @"playbackBufferEmpty";
                                                        @"domain": _playerItem.error.domain},
                                                    @"target": self.reactTag}];
       }
-    } else if ([keyPath isEqualToString:playbackBufferEmptyKeyPath]) {
-      _playerBufferEmpty = YES;
     } else if ([keyPath isEqualToString:playbackLikelyToKeepUpKeyPath]) {
       // Continue playing (or not if paused) after being paused due to hitting an unbuffered zone.
-      if ((!_controls || _playerBufferEmpty) && _playerItem.playbackLikelyToKeepUp) {
+      if (_playerItem.playbackLikelyToKeepUp) {
         [self setPaused:_paused];
       }
-      _playerBufferEmpty = NO;
     }
   } else {
       [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
