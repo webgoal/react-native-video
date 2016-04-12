@@ -44,6 +44,8 @@ static NSString *const playbackLikelyToKeepUpKeyPath = @"playbackLikelyToKeepUp"
   self = [super init];
   if (self) {
     [self setSharedAudioSessionCategory];
+    // Descomentar essa linha para setar o PlayingInfo. É preciso no entanto fazer o bind com o componente para identificar play / pause
+    // [self setNowPlayingInfo];
 
     _eventDispatcher = eventDispatcher;
 
@@ -83,6 +85,13 @@ static NSString *const playbackLikelyToKeepUpKeyPath = @"playbackLikelyToKeepUp"
   if (categoryError) {
     NSLog(@"Error setting category! %@", [categoryError description]);
   }
+}
+
+- (void)setNowPlayingInfo
+{
+  // MPMediaItemArtwork *artwork = [[MPMediaItemArtwork alloc]initWithImage:[UIImage imageNamed:@"RadioLogo"]];
+  NSDictionary *nowPlayingInfo = [NSDictionary dictionaryWithObjectsAndKeys:@"EducadoraFM", MPMediaItemPropertyAlbumTitle, @"", MPMediaItemPropertyAlbumArtist, @"EducadoraFM", MPMediaItemPropertyTitle, nil, MPMediaItemPropertyArtwork, nil];
+  [MPNowPlayingInfoCenter defaultCenter].nowPlayingInfo = nowPlayingInfo;
 }
 
 - (void)onAudioInterruption:(NSNotification *)notification
