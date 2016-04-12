@@ -3,6 +3,8 @@
 #import "RCTBridgeModule.h"
 #import "RCTEventDispatcher.h"
 #import "UIView+React.h"
+@import AVFoundation;
+@import MediaPlayer;
 
 static NSString *const statusKeyPath = @"status";
 static NSString *const playbackLikelyToKeepUpKeyPath = @"playbackLikelyToKeepUp";
@@ -39,7 +41,10 @@ static NSString *const playbackLikelyToKeepUpKeyPath = @"playbackLikelyToKeepUp"
 
 - (instancetype)initWithEventDispatcher:(RCTEventDispatcher *)eventDispatcher
 {
-  if ((self = [super init])) {
+  self = [super init]
+  if (self) {
+    [self setSharedAudioSessionCategory];
+
     _eventDispatcher = eventDispatcher;
 
     _rate = 1.0;
@@ -65,14 +70,29 @@ static NSString *const playbackLikelyToKeepUpKeyPath = @"playbackLikelyToKeepUp"
   return self;
 }
 
+#pragma mark - Audio Session
+
+
+- (void)setSharedAudioSessionCategory
+{
+  NSError *categoryError = nil;
+
+  // Create shared session and set audio session category allowing background playback
+  [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:&categoryError];
+
+  if (categoryError) {
+    NSLog(@"Error setting category! %@", [categoryError description]);
+  }
+}
+
 - (void)onAudioInterruption:(NSNotification *)notification
 {
     // Get the user info dictionary
     NSDictionary *interruptionDict = notification.userInfo;
-    
+
     // Get the AVAudioSessionInterruptionTypeKey enum from the dictionary
     NSInteger interuptionType = [[interruptionDict valueForKey:AVAudioSessionInterruptionTypeKey] integerValue];
-    
+
     // Decide what to do based on interruption type
     switch (interuptionType)
     {
@@ -81,13 +101,13 @@ static NSString *const playbackLikelyToKeepUpKeyPath = @"playbackLikelyToKeepUp"
             // fork to handling method here...
             // EG:[self handleInterruptionStarted];
             break;
-            
+
         case AVAudioSessionInterruptionTypeEnded:
             NSLog(@"Audio Session Interruption case ended.");
             // fork to handling method here...
             // EG:[self handleInterruptionEnded];
             break;
-            
+
         default:
             NSLog(@"Audio Session Interruption Notification case default.");
             break;
@@ -95,39 +115,39 @@ static NSString *const playbackLikelyToKeepUpKeyPath = @"playbackLikelyToKeepUp"
 }
 
 - (void)onRouteChangeInterruption:(NSNotification*)notification {
-    
+
     NSDictionary *interruptionDict = notification.userInfo;
-    
+
     NSInteger routeChangeReason = [[interruptionDict valueForKey:AVAudioSessionRouteChangeReasonKey] integerValue];
-    
+
     switch (routeChangeReason) {
         case AVAudioSessionRouteChangeReasonUnknown:
             NSLog(@"routeChangeReason : AVAudioSessionRouteChangeReasonUnknown");
             break;
-            
+
         case AVAudioSessionRouteChangeReasonNewDeviceAvailable:
             // a headset was added or removed
             NSLog(@"routeChangeReason : AVAudioSessionRouteChangeReasonNewDeviceAvailable");
             break;
-            
+
         case AVAudioSessionRouteChangeReasonOldDeviceUnavailable:
             // a headset was added or removed
             NSLog(@"routeChangeReason : AVAudioSessionRouteChangeReasonOldDeviceUnavailable");
             break;
-            
+
         case AVAudioSessionRouteChangeReasonCategoryChange:
             // called at start - also when other audio wants to play
             NSLog(@"routeChangeReason : AVAudioSessionRouteChangeReasonCategoryChange"); //AVAudioSessionRouteChangeReasonCategoryChange
             break;
-            
+
         case AVAudioSessionRouteChangeReasonOverride:
             NSLog(@"routeChangeReason : AVAudioSessionRouteChangeReasonOverride");
             break;
-            
+
         case AVAudioSessionRouteChangeReasonWakeFromSleep:
             NSLog(@"routeChangeReason : AVAudioSessionRouteChangeReasonWakeFromSleep");
             break;
-            
+
         case AVAudioSessionRouteChangeReasonNoSuitableRouteForCategory:
             NSLog(@"routeChangeReason : AVAudioSessionRouteChangeReasonNoSuitableRouteForCategory");
             break;
@@ -153,7 +173,7 @@ static NSString *const playbackLikelyToKeepUpKeyPath = @"playbackLikelyToKeepUp"
     {
         return([playerItem duration]);
     }
-    
+
     return(kCMTimeInvalid);
 }
 
@@ -200,7 +220,7 @@ static NSString *const playbackLikelyToKeepUpKeyPath = @"playbackLikelyToKeepUp"
    if (video == nil || video.status != AVPlayerItemStatusReadyToPlay) {
      return;
    }
-    
+
    CMTime playerDuration = [self playerItemDuration];
    if (CMTIME_IS_INVALID(playerDuration)) {
       return;
@@ -405,7 +425,7 @@ static NSString *const playbackLikelyToKeepUpKeyPath = @"playbackLikelyToKeepUp"
     [_player play];
     [_player setRate:_rate];
   }
-  
+
   _paused = paused;
 }
 
@@ -431,7 +451,7 @@ static NSString *const playbackLikelyToKeepUpKeyPath = @"playbackLikelyToKeepUp"
     CMTime current = item.currentTime;
     // TODO figure out a good tolerance level
     CMTime tolerance = CMTimeMake(1000, timeScale);
-    
+
     if (CMTimeCompare(current, cmSeekTime) != 0) {
       [_player seekToTime:cmSeekTime toleranceBefore:tolerance toleranceAfter:tolerance completionHandler:^(BOOL finished) {
         [_eventDispatcher sendInputEventWithName:@"onVideoSeek"
@@ -504,7 +524,7 @@ static NSString *const playbackLikelyToKeepUpKeyPath = @"playbackLikelyToKeepUp"
       _playerLayer = [AVPlayerLayer playerLayerWithPlayer:_player];
       _playerLayer.frame = self.bounds;
       _playerLayer.needsDisplayOnBoundsChange = YES;
-    
+
       [self.layer addSublayer:_playerLayer];
       self.layer.needsDisplayOnBoundsChange = YES;
     }
@@ -540,7 +560,7 @@ static NSString *const playbackLikelyToKeepUpKeyPath = @"playbackLikelyToKeepUp"
   {
     [self setControls:true];
   }
-  
+
   if( _controls )
   {
      view.frame = self.bounds;
@@ -572,7 +592,7 @@ static NSString *const playbackLikelyToKeepUpKeyPath = @"playbackLikelyToKeepUp"
   if( _controls )
   {
     _playerViewController.view.frame = self.bounds;
-  
+
     // also adjust all subviews of contentOverlayView
     for (UIView* subview in _playerViewController.contentOverlayView.subviews) {
       subview.frame = self.bounds;
@@ -596,7 +616,7 @@ static NSString *const playbackLikelyToKeepUpKeyPath = @"playbackLikelyToKeepUp"
 
   [_playerLayer removeFromSuperlayer];
   _playerLayer = nil;
-  
+
   [_playerViewController.view removeFromSuperview];
   _playerViewController = nil;
 
