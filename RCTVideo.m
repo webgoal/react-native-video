@@ -41,7 +41,7 @@ static NSString *const playbackLikelyToKeepUpKeyPath = @"playbackLikelyToKeepUp"
 
 - (instancetype)initWithEventDispatcher:(RCTEventDispatcher *)eventDispatcher
 {
-  self = [super init]
+  self = [super init];
   if (self) {
     [self setSharedAudioSessionCategory];
 
