@@ -1,13 +1,7 @@
 'use strict';
 
-import React, {
-  AppRegistry,
-  Component,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import React, {Component} from 'react';
+import {AppRegistry, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 
 import Video from 'react-native-video';
 

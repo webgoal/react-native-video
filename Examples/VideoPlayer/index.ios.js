@@ -1,14 +1,7 @@
 'use strict';
 
-import React, {
-  AlertIOS,
-  AppRegistry,
-  Component,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import React, {Component} from 'react';
+import {AlertIOS, AppRegistry, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 
 import Video from 'react-native-video';
 
